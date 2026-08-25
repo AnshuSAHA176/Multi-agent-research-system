@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import threading
 import time
 
@@ -20,32 +21,34 @@ if not API_KEY:
     )
 
 
-MODEL = "openai/gpt-oss-20b"
+# Groq's rate limits (RPM/TPM/TPD) are scoped PER MODEL, not per
+# account. Putting the Writer and Critic on the same model means
+# they compete for one daily token bucket — which is what emptied
+# your 200k/day openai/gpt-oss-20b quota. Using two different
+# models gives each agent its own separate bucket instead.
+#
+# Neither model below is a "reasoning" model, so there's no
+# internal reasoning-token overhead eating the response budget —
+# that's what caused the earlier empty-content bug on gpt-oss-20b,
+# and it doesn't apply here, so no reasoning_effort kwarg needed.
 
+WRITER_MODEL = "llama-3.3-70b-versatile"   # ~100k TPD — quality-sensitive
+CRITIC_MODEL = "llama-3.1-8b-instant"      # ~500k TPD — lighter, structured task
 
-# openai/gpt-oss-20b is a reasoning model: part of max_tokens is
-# spent on an internal "reasoning" pass before it writes the
-# actual answer. reasoning_effort="low" keeps that overhead small,
-# and max_tokens needs enough headroom left over for the real
-# output — too low (e.g. the previous critic max_tokens=500) can
-# result in a reasoning-only response with an EMPTY content field
-# and no error raised.
 
 writer_llm = ChatGroq(
     api_key=API_KEY,
-    model=MODEL,
+    model=WRITER_MODEL,
     temperature=0,
-    max_tokens=1200,
-    reasoning_effort="low",
+    max_tokens=1000,
 )
 
 
 critic_llm = ChatGroq(
     api_key=API_KEY,
-    model=MODEL,
+    model=CRITIC_MODEL,
     temperature=0,
-    max_tokens=1024,
-    reasoning_effort="low",
+    max_tokens=700,
 )
 
 
@@ -81,6 +84,60 @@ class _RateLimiter:
 
 
 _groq_rate_limiter = _RateLimiter(min_interval=2.5)
+
+
+class GroqRateLimitError(RuntimeError):
+    """
+    Raised when Groq rejects a call with a wait time too long to
+    block on inline (e.g. a daily token cap, not a per-minute one).
+    `retry_after` (seconds) is attached so a caller — a web
+    handler, a UI, a scheduler — can decide what to do instead of
+    the request thread just hanging.
+    """
+
+    def __init__(self, message: str, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+# Groq's error messages look like:
+#   "Please try again in 12m43.344s"
+#   "Please try again in 4.2s"
+_RETRY_AFTER_RE = re.compile(
+    r"try again in (?:(\d+)m)?(\d+(?:\.\d+)?)s",
+    re.IGNORECASE,
+)
+
+# If Groq says the wait is longer than this, don't retry inline —
+# it's almost certainly a daily (TPD) cap rather than a per-minute
+# one, and more retries will just fail the same way while tying up
+# whatever called the pipeline.
+_MAX_INLINE_WAIT_SECONDS = 30.0
+
+
+def _parse_retry_after(message: str) -> float | None:
+
+    match = _RETRY_AFTER_RE.search(message)
+
+    if not match:
+        return None
+
+    minutes = int(match.group(1)) if match.group(1) else 0
+    seconds = float(match.group(2))
+
+    return minutes * 60 + seconds
+
+
+def _human_duration(seconds: float) -> str:
+
+    seconds = int(seconds)
+
+    if seconds < 60:
+        return f"{seconds}s"
+
+    minutes, remainder = divmod(seconds, 60)
+
+    return f"{minutes}m{remainder:02d}s"
 
 
 def safe_invoke(runnable, payload, retries=5, base_delay=3):
@@ -128,22 +185,45 @@ def safe_invoke(runnable, payload, retries=5, base_delay=3):
         except Exception as exc:
 
             last_exc = exc
-            error = str(exc).lower()
+            error = str(exc)
+            error_lower = error.lower()
 
             is_rate_limit = (
-                "429" in error
-                or "rate_limit" in error
-                or "tokens per minute" in error
-                or "requests per minute" in error
+                "429" in error_lower
+                or "rate_limit" in error_lower
+                or "tokens per minute" in error_lower
+                or "tokens per day" in error_lower
+                or "requests per minute" in error_lower
             )
 
             if not is_rate_limit:
                 raise
 
+            retry_after = _parse_retry_after(error)
+
+            # Groq told us exactly how long to wait — a long wait
+            # means a daily cap, not a transient minute-level
+            # limit. Retrying won't help until the quota actually
+            # refills, so fail fast with a clear message instead
+            # of blocking the caller for minutes.
+            if retry_after is not None and retry_after > _MAX_INLINE_WAIT_SECONDS:
+
+                raise GroqRateLimitError(
+                    "Groq's daily token limit has been reached. "
+                    f"Try again in about {_human_duration(retry_after)}.",
+                    retry_after=retry_after,
+                ) from exc
+
             if attempt == retries - 1:
                 raise
 
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 1.5)
+            # Prefer Groq's own reported wait time over a blind
+            # exponential guess when we have one — it's both more
+            # accurate and usually faster.
+            if retry_after is not None:
+                delay = retry_after + random.uniform(0, 1.0)
+            else:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1.5)
 
             print(
                 f"[RATE LIMIT] "
