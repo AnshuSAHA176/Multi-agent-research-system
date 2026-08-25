@@ -2,7 +2,7 @@ from src.agents.agents import (
     search_agent,
     scrape_agent,
     writer_chain,
-    critic_chain,
+    critic_chain
 )
 
 

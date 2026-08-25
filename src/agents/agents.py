@@ -12,35 +12,46 @@ from src.tools.tools import scrape_url, websearch
 load_dotenv()
 
 
-# ============================================================
-# LLM
-# ============================================================
-
-llm = ChatGroq(
+search_llm = ChatGroq(
     api_key=os.environ["GROQ_API_KEY"],
     model="openai/gpt-oss-120b",
     temperature=0,
+    max_tokens=700,
+)
+
+research_llm = ChatGroq(
+    api_key=os.environ["GROQ_API_KEY"],
+    model="openai/gpt-oss-120b",
+    temperature=0,
+    max_tokens=900,
+)
+
+writer_llm = ChatGroq(
+    api_key=os.environ["GROQ_API_KEY"],
+    model="openai/gpt-oss-120b",
+    temperature=0,
+    max_tokens=1200,
+)
+
+critic_llm = ChatGroq(
+    api_key=os.environ["GROQ_API_KEY"],
+    model="openai/gpt-oss-120b",
+    temperature=0,
+    max_tokens=600,
 )
 
 
-# ============================================================
-# AGENTS
-# ============================================================
-
 search_agent = create_agent(
-    model=llm,
+    model=search_llm,
     tools=[websearch],
 )
 
+
 scrape_agent = create_agent(
-    model=llm,
+    model=research_llm,
     tools=[scrape_url],
 )
 
-
-# ============================================================
-# WRITER
-# ============================================================
 
 writer_prompt = ChatPromptTemplate.from_messages(
     [
@@ -49,16 +60,16 @@ writer_prompt = ChatPromptTemplate.from_messages(
             """
 You are an expert research writer.
 
-Your job is to transform research findings into a clear,
-accurate, well-structured report.
+Transform the supplied evidence into a concise,
+accurate, well-structured research report.
 
 Rules:
-- Use only information present in the research context.
-- Do not invent facts.
-- Clearly distinguish facts from conclusions.
-- Prefer precise language over unnecessary verbosity.
-- Organize the report with useful headings.
-- Preserve important evidence and source information.
+- Use only the supplied evidence.
+- Never invent facts.
+- Clearly distinguish evidence from conclusions.
+- Preserve important source URLs.
+- Prioritize accuracy over verbosity.
+- Use useful headings.
 """,
         ),
         (
@@ -67,21 +78,17 @@ Rules:
 Research question:
 {question}
 
-Research findings:
+Evidence:
 {research}
 
-Write a comprehensive research report.
+Write the research report.
 """,
         ),
     ]
 )
 
-writer_chain = writer_prompt | llm | StrOutputParser()
+writer_chain = writer_prompt | writer_llm | StrOutputParser()
 
-
-# ============================================================
-# CRITIC
-# ============================================================
 
 critic_prompt = ChatPromptTemplate.from_messages(
     [
@@ -90,30 +97,29 @@ critic_prompt = ChatPromptTemplate.from_messages(
             """
 You are a rigorous research critic.
 
-Evaluate the research report for:
+Evaluate the report for:
+- Factual accuracy
+- Unsupported claims
+- Missing evidence
+- Logical inconsistencies
+- Weak reasoning
+- Source quality
+- Unanswered parts of the question
 
-1. Factual accuracy
-2. Unsupported claims
-3. Missing evidence
-4. Logical inconsistencies
-5. Weak reasoning
-6. Source quality
-7. Important unanswered parts of the research question
-
-Do not rewrite the entire report.
+Do not rewrite the report.
 
 Return:
-- Overall assessment
-- Problems found
-- Missing information
-- Specific improvements
-- Final verdict: PASS or REVISE
+Overall assessment
+Problems found
+Missing information
+Specific improvements
+Final verdict: PASS or REVISE
 """,
         ),
         (
             "human",
             """
-Original research question:
+Research question:
 {question}
 
 Research report:
@@ -123,4 +129,4 @@ Research report:
     ]
 )
 
-critic_chain = critic_prompt | llm | StrOutputParser()
+critic_chain = critic_prompt | critic_llm | StrOutputParser()
