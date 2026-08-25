@@ -6,6 +6,19 @@ from src.agents.agents import (
 )
 
 
+def _limit_text(text: str, max_chars: int) -> str:
+    if not text:
+        return ""
+
+    if len(text) <= max_chars:
+        return text
+
+    return (
+        text[:max_chars]
+        + "\n\n[CONTENT TRUNCATED TO CONTROL CONTEXT SIZE]"
+    )
+
+
 def research_pipeline(topic: str) -> dict:
     state = {
         "topic": topic,
@@ -15,118 +28,119 @@ def research_pipeline(topic: str) -> dict:
         "feedback": None,
     }
 
-    print(f"\n[RESEARCH] Starting research: {topic}")
 
-    print("[1/4] Searching for reliable sources...")
     search_result = search_agent.invoke(
         {
             "messages": [
                 {
                     "role": "user",
                     "content": f"""
-                    Research the following topic:
+Research the following topic:
 
-                    {topic}
+{topic}
 
-                    Find recent, reliable, and detailed information.
+Find 5-7 high-quality and recent sources.
 
-                    Prioritize:
-                    - Official sources
-                    - Academic papers
-                    - Research organizations
-                    - Government sources
-                    - Reputable industry sources
+Prioritize:
+- Academic papers
+- Official documentation
+- Government sources
+- Research organizations
+- Reputable industry sources
 
-                    Find multiple relevant sources.
+For each source provide ONLY:
 
-                    For each source, identify:
-                    - Title
-                    - URL
-                    - Key findings
-                    - Why the source is relevant
+Title:
+URL:
+Why it is relevant: one short sentence
 
-                    Do not invent sources or information.
-                    """,
+Do not provide long summaries.
+Do not explain the sources in detail.
+Do not invent sources.
+""",
                 }
             ]
         }
     )
 
-    state["search_result"] = search_result["messages"][-1].content
-    print("[1/4] Search completed.")
+    state["search_result"] = _limit_text(
+        search_result["messages"][-1].content,
+        6000,
+    )
 
-    print("[2/4] Scraping relevant sources...")
+
+    print("[2/4] Extracting source evidence...")
+
     scrape_result = scrape_agent.invoke(
         {
             "messages": [
                 {
                     "role": "user",
                     "content": f"""
-                    You are a research source extraction agent.
+You are a source extraction agent.
 
-                    Research topic:
-                    {topic}
+Research topic:
+{topic}
 
-                    Search results:
-                    {state["search_result"]}
+Sources discovered by the search agent:
 
-                    Identify the most relevant URLs from the search results.
+{state["search_result"]}
 
-                    Use the scraping tool to access those URLs.
+Identify the most relevant sources and use the scraping tool
+to extract useful evidence.
 
-                    Extract:
-                    - Important facts
-                    - Evidence
-                    - Statistics
-                    - Research findings
-                    - Claims and supporting evidence
-                    - Risks and challenges
-                    - Open research questions
-                    - Important dates
-                    - Authors
-                    - Organizations
+Focus ONLY on information useful for answering the research topic:
 
-                    Do not invent information.
+- Important facts
+- Research findings
+- Statistics
+- Technical details
+- Risks
+- Challenges
+- Open research questions
+- Important dates
+- Authors or organizations
 
-                    If a source cannot be accessed, explicitly mention
-                    that instead of guessing its contents.
+For every piece of important evidence, preserve its source URL.
 
-                    Preserve the source URL with the extracted evidence.
-                    """,
+Do not copy entire articles.
+Do not provide unnecessary explanations.
+Do not invent information.
+
+Return concise, evidence-focused notes.
+""",
                 }
             ]
         }
     )
 
-    state["scrape_result"] = scrape_result["messages"][-1].content
-    print("[2/4] Scraping completed.")
-
-    print("[3/4] Writing research report...")
-    research_content = (
-        f"SEARCH RESULTS:\n\n"
-        f"{state['search_result']}\n\n"
-        f"{'=' * 80}\n\n"
-        f"SCRAPED SOURCE CONTENT:\n\n"
-        f"{state['scrape_result']}"
+    state["scrape_result"] = _limit_text(
+        scrape_result["messages"][-1].content,
+        10000,
     )
+
+
+
 
     state["report"] = writer_chain.invoke(
         {
             "question": topic,
-            "research": research_content,
+            "research": state["scrape_result"],
         }
     )
-    print("[3/4] Report generated.")
 
-    print("[4/4] Critiquing report...")
+
+
     state["feedback"] = critic_chain.invoke(
         {
             "question": topic,
-            "report": state["report"],
+            "report": _limit_text(
+                state["report"],
+                9000,
+            ),
         }
     )
-    print("[4/4] Critique completed.")
 
-    print("[RESEARCH] Pipeline completed.\n")
+
 
     return state
