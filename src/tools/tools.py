@@ -9,6 +9,7 @@ import re
 from bs4 import BeautifulSoup
 from readability import Document
 
+@tool
 def websearch(query:str)->str:
 
     """ search the web for recent reliable topics """
