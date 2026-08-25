@@ -9,65 +9,71 @@ from src.agents.agents import (
 from src.tools.tools import run_web_search, scrape_url
 
 
+MAX_SOURCES = 3
+MAX_EVIDENCE_PER_SOURCE = 3000
+
+
 def validate_content(
     name: str,
     content: str,
     minimum: int,
-):
+) -> None:
 
     if not content:
-
         raise RuntimeError(
             f"{name} returned empty content."
         )
 
-    if len(content) < minimum:
-
+    if len(content.strip()) < minimum:
         raise RuntimeError(
-            f"{name} returned insufficient "
-            f"content ({len(content)} characters)."
+            f"{name} returned insufficient content "
+            f"({len(content)} characters)."
         )
 
 
 def is_valid_url(url: str) -> bool:
 
-    try:
+    if not url:
+        return False
 
+    try:
         parsed = urlparse(url)
 
         return (
-            parsed.scheme in ("http", "https")
+            parsed.scheme in {"http", "https"}
             and bool(parsed.netloc)
         )
 
     except Exception:
-
         return False
 
 
 def scrape_sources(
     sources: list[dict],
-    max_sources: int = 3,
+    max_sources: int = MAX_SOURCES,
 ) -> str:
-    """
-    Scrapes each source's URL in parallel (this is pure I/O wait
-    on network requests, so threading gives a real wall-clock
-    speedup with no added rate-limit risk — this is scraping raw
-    pages, not calling the LLM).
-    """
 
     targets = [
         source
         for source in sources[:max_sources]
-        if is_valid_url(source.get("url", ""))
+        if is_valid_url(
+            source.get("url", "")
+        )
     ]
 
-    def _scrape_one(index: int, source: dict):
+    if not targets:
+        return ""
+
+    def scrape_one(
+        index: int,
+        source: dict,
+    ):
 
         url = source["url"]
 
         print(
-            f"[SCRAPE] Source {index}: {url}"
+            f"[SCRAPE {index}/{len(targets)}] "
+            f"{url}"
         )
 
         try:
@@ -87,59 +93,128 @@ def scrape_sources(
         if not result:
             return index, None
 
+        invalid_prefixes = (
+            "SCRAPE_",
+            "NO_",
+            "INVALID_",
+        )
+
         if result.startswith(
-            (
-                "SCRAPE_",
-                "NO_",
-                "INVALID_",
-            )
+            invalid_prefixes
         ):
             print(
                 f"[SCRAPE SKIPPED] {url}"
             )
+
             return index, None
 
-        text = f"""
+        evidence = result.strip()
+
+        if len(evidence) < 200:
+            print(
+                f"[SCRAPE SKIPPED] "
+                f"Insufficient content: {url}"
+            )
+
+            return index, None
+
+        evidence = evidence[
+            :MAX_EVIDENCE_PER_SOURCE
+        ]
+
+        formatted = (
+            f"SOURCE {index}\n\n"
+            f"TITLE:\n"
+            f"{source.get('title', url)}\n\n"
+            f"URL:\n"
+            f"{url}\n\n"
+            f"EVIDENCE:\n"
+            f"{evidence}"
+        )
+
+        return index, formatted
+
+    results = {}
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(
+            len(targets),
+            MAX_SOURCES,
+        )
+    ) as executor:
+
+        futures = {
+            executor.submit(
+                scrape_one,
+                index,
+                source,
+            ): index
+            for index, source in enumerate(
+                targets,
+                start=1,
+            )
+        }
+
+        for future in concurrent.futures.as_completed(
+            futures
+        ):
+
+            index = futures[future]
+
+            try:
+                result_index, evidence = (
+                    future.result()
+                )
+
+                if evidence:
+                    results[result_index] = evidence
+
+            except Exception as exc:
+
+                print(
+                    f"[SCRAPE WORKER ERROR] "
+                    f"Source {index}: {exc}"
+                )
+
+    ordered_results = [
+        results[index]
+        for index in sorted(results)
+    ]
+
+    return (
+        "\n\n"
+        "=============================="
+        "\n\n"
+    ).join(ordered_results)
+
+
+def build_search_context(
+    sources: list[dict],
+) -> str:
+
+    parts = []
+
+    for index, source in enumerate(
+        sources,
+        start=1,
+    ):
+
+        parts.append(
+            f"""
 SOURCE {index}
 
 TITLE:
-{source.get('title', url)}
+{source.get("title", "Unknown")}
 
 URL:
-{url}
+{source.get("url", "")}
 
-EVIDENCE:
-{result[:3500]}
+SUMMARY:
+{source.get("summary", "")}
 """.strip()
+        )
 
-        return index, text
-
-    evidence_by_index = {}
-
-    if targets:
-
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(targets)
-        ) as pool:
-
-            futures = [
-                pool.submit(_scrape_one, index, source)
-                for index, source in enumerate(targets, start=1)
-            ]
-
-            for future in concurrent.futures.as_completed(futures):
-
-                index, text = future.result()
-
-                if text:
-                    evidence_by_index[index] = text
-
-    ordered = [
-        evidence_by_index[index]
-        for index in sorted(evidence_by_index)
-    ]
-
-    return "\n\n====================\n\n".join(ordered)
+    return "\n\n---\n\n".join(parts)
 
 
 def research_pipeline(
@@ -150,12 +225,16 @@ def research_pipeline(
     state = {
         "topic": topic,
         "search_result": "",
+        "sources": [],
         "scrape_result": "",
         "report": "",
         "feedback": "",
     }
 
-    def step(agent, status):
+    def step(
+        agent: str,
+        status: str,
+    ):
 
         if on_step:
             on_step(
@@ -168,15 +247,8 @@ def research_pipeline(
     )
 
     # ========================================================
-    # 1. SEARCH
+    # 1. WEB SEARCH
     # ========================================================
-    # Calls Tavily directly instead of routing through an LLM
-    # agent. This is the fix for the rate-limit errors you were
-    # seeing: the old search_agent burned 2-3 Groq calls per
-    # search (reasoning + tool call + final answer) on top of the
-    # writer and critic calls, all sharing one Groq quota. It's
-    # also more accurate — no LLM retyping URLs into prose that
-    # then had to be regex-extracted.
 
     step(
         "Search Agent",
@@ -187,10 +259,23 @@ def research_pipeline(
         "[1/4] Searching for reliable sources..."
     )
 
-    sources = run_web_search(
-        topic,
-        max_results=5,
-    )
+    try:
+
+        sources = run_web_search(
+            topic,
+            max_results=5,
+        )
+
+    except Exception as exc:
+
+        step(
+            "Search Agent",
+            "failed",
+        )
+
+        raise RuntimeError(
+            f"Web search failed: {exc}"
+        ) from exc
 
     if not sources:
 
@@ -203,13 +288,36 @@ def research_pipeline(
             "Web search returned no usable sources."
         )
 
-    state["search_result"] = "\n\n---\n\n".join(
-        f"TITLE: {s['title']}\nURL: {s['url']}\nSUMMARY: {s['summary']}"
-        for s in sources
+    valid_sources = [
+        source
+        for source in sources
+        if is_valid_url(
+            source.get("url", "")
+        )
+    ]
+
+    if not valid_sources:
+
+        step(
+            "Search Agent",
+            "failed",
+        )
+
+        raise RuntimeError(
+            "Search returned no valid URLs."
+        )
+
+    state["sources"] = valid_sources
+
+    state["search_result"] = (
+        build_search_context(
+            valid_sources
+        )
     )
 
     print(
-        f"[SEARCH] Sources found: {len(sources)}"
+        f"[SEARCH] Sources found: "
+        f"{len(valid_sources)}"
     )
 
     step(
@@ -218,7 +326,7 @@ def research_pipeline(
     )
 
     # ========================================================
-    # 2. SCRAPE
+    # 2. SCRAPING
     # ========================================================
 
     step(
@@ -231,13 +339,8 @@ def research_pipeline(
     )
 
     state["scrape_result"] = scrape_sources(
-        sources,
-        max_sources=3,
-    )
-
-    print(
-        f"[SCRAPE] Evidence: "
-        f"{len(state['scrape_result'])} chars"
+        valid_sources,
+        max_sources=MAX_SOURCES,
     )
 
     if not state["scrape_result"]:
@@ -248,9 +351,14 @@ def research_pipeline(
         )
 
         raise RuntimeError(
-            "Could not extract evidence "
+            "Could not extract usable evidence "
             "from the discovered sources."
         )
+
+    print(
+        f"[SCRAPE] Evidence: "
+        f"{len(state['scrape_result'])} chars"
+    )
 
     step(
         "Scrape Agent",
@@ -274,7 +382,9 @@ def research_pipeline(
         writer_chain,
         {
             "question": topic,
-            "research": state["scrape_result"],
+            "research": state[
+                "scrape_result"
+            ],
         },
     )
 
