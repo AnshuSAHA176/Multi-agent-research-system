@@ -13,268 +13,198 @@ st.set_page_config(
 
 st.markdown(
     """
-    <style>
-        @import url(
-            'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap'
-        );
+<style>
 
-        * {
-            font-family: "DM Sans", sans-serif;
-        }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-        .stApp {
-            background: #0c0d0f;
-        }
+* {
+    font-family: "DM Sans", sans-serif;
+}
 
-        .block-container {
-            max-width: 1400px;
-            padding-top: 2.5rem;
-            padding-bottom: 4rem;
-        }
+.stApp {
+    background: #0c0d0f;
+}
 
-        section[data-testid="stSidebar"] {
-            background: #101114;
-            border-right: 1px solid #24262b;
-        }
+.block-container {
+    max-width: 1400px;
+    padding-top: 2.5rem;
+    padding-bottom: 4rem;
+}
 
-        section[data-testid="stSidebar"] > div {
-            padding-top: 2rem;
-        }
+/* SIDEBAR */
 
-        .brand {
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: -0.2px;
-        }
+section[data-testid="stSidebar"] {
+    background: #101114;
+    border-right: 1px solid #24262b;
+}
 
-        .brand-subtitle {
-            color: #777b84;
-            font-size: 0.75rem;
-            margin-top: 0.2rem;
-        }
+.brand {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #eeeeef;
+}
 
-        .sidebar-section {
-            color: #6f737c;
-            font-size: 0.68rem;
-            font-weight: 600;
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-            margin-top: 2rem;
-            margin-bottom: 0.8rem;
-        }
+.brand-subtitle {
+    color: #777b84;
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
 
-        .pipeline-step {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #a5a8ae;
-            font-size: 0.82rem;
-            margin: 12px 0;
-        }
+.sidebar-section {
+    color: #6f737c;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-top: 2rem;
+    margin-bottom: 0.8rem;
+}
 
-        .step-number {
-            width: 22px;
-            height: 22px;
-            border: 1px solid #30333a;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "IBM Plex Mono", monospace;
-            font-size: 0.68rem;
-            color: #888c95;
-        }
+.pipeline-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #a5a8ae;
+    font-size: 0.82rem;
+    margin: 12px 0;
+}
 
-        .page-label {
-            color: #777b84;
-            font-size: 0.75rem;
-            font-family: "IBM Plex Mono", monospace;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin-bottom: 0.8rem;
-        }
+.step-number {
+    width: 22px;
+    height: 22px;
+    border: 1px solid #30333a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    color: #888c95;
+}
 
-        .page-title {
-            font-size: 2.35rem;
-            line-height: 1.1;
-            font-weight: 600;
-            letter-spacing: -1.5px;
-            color: #f2f2f3;
-            margin-bottom: 0.6rem;
-        }
+/* HEADER */
 
-        .page-description {
-            color: #858992;
-            max-width: 680px;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            margin-bottom: 2.2rem;
-        }
+.page-label {
+    color: #777b84;
+    font-size: 0.75rem;
+    font-family: "IBM Plex Mono", monospace;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+}
 
-        .section-title {
-            color: #e4e5e7;
-            font-size: 0.92rem;
-            font-weight: 600;
-            margin-bottom: 0.65rem;
-        }
+.page-title {
+    font-size: 2.35rem;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -1.5px;
+    color: #f2f2f3;
+    margin-bottom: 0.6rem;
+}
 
-        .status-box {
-            background: #111317;
-            border: 1px solid #282b31;
-            border-radius: 8px;
-            padding: 14px 16px;
-            color: #a4a8b0;
-            font-size: 0.82rem;
-            font-family: "IBM Plex Mono", monospace;
-        }
+.page-description {
+    color: #858992;
+    max-width: 680px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 2.2rem;
+}
 
-        .agent-panel {
-            background: #111317;
-            border: 1px solid #282b31;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 24px;
-        }
+.section-title {
+    color: #e4e5e7;
+    font-size: 0.92rem;
+    font-weight: 600;
+    margin-bottom: 0.65rem;
+}
 
-        .agent-row {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 14px 16px;
-            border-bottom: 1px solid #202228;
-        }
+/* INPUT */
 
-        .agent-row:last-child {
-            border-bottom: none;
-        }
+div[data-testid="stTextArea"] textarea {
+    background: #111317;
+    border: 1px solid #292c32;
+    border-radius: 8px;
+    color: #e7e7e9;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
 
-        .agent-number {
-            width: 28px;
-            height: 28px;
-            border: 1px solid #30333a;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #777b84;
-            font-family: "IBM Plex Mono", monospace;
-            font-size: 0.68rem;
-            flex-shrink: 0;
-        }
+div[data-testid="stTextArea"] textarea:focus {
+    border-color: #555961;
+    box-shadow: none;
+}
 
-        .agent-info {
-            flex: 1;
-        }
+div.stButton > button {
+    background: #e8e8e8;
+    color: #111214;
+    border: none;
+    border-radius: 7px;
+    height: 2.7rem;
+    font-weight: 600;
+    font-size: 0.84rem;
+}
 
-        .agent-name {
-            color: #d7d9dd;
-            font-size: 0.84rem;
-            font-weight: 500;
-        }
+div.stButton > button:hover {
+    background: #ffffff;
+    color: #111214;
+}
 
-        .agent-state {
-            margin-top: 3px;
-            font-family: "IBM Plex Mono", monospace;
-            font-size: 0.68rem;
-        }
+/* STATUS */
 
-        .agent-state.waiting {
-            color: #666a73;
-        }
+.status-box {
+    background: #111317;
+    border: 1px solid #282b31;
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: #a4a8b0;
+    font-size: 0.82rem;
+    font-family: "IBM Plex Mono", monospace;
+}
 
-        .agent-state.working {
-            color: #d6d8dc;
-        }
 
-        .agent-state.completed {
-            color: #9da2aa;
-        }
+/* REPORT */
 
-        .agent-state.failed {
-            color: #c8cbd1;
-        }
+.report-container {
+    background: #101114;
+    border: 1px solid #282b31;
+    border-radius: 8px;
+    padding: 32px 38px;
+    line-height: 1.75;
+}
 
-        .report-container {
-            background: #101114;
-            border: 1px solid #282b31;
-            border-radius: 8px;
-            padding: 32px 38px;
-            line-height: 1.75;
-        }
+.report-container h1,
+.report-container h2,
+.report-container h3 {
+    color: #eeeeef;
+}
 
-        .report-container h1,
-        .report-container h2,
-        .report-container h3 {
-            color: #eeeeef;
-        }
+.report-container p,
+.report-container li {
+    color: #b4b7bd;
+}
 
-        .report-container p,
-        .report-container li {
-            color: #b4b7bd;
-        }
 
-        .source-label {
-            color: #696d76;
-            font-size: 0.68rem;
-            font-family: "IBM Plex Mono", monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
+/* FOOTER */
 
-        div[data-testid="stTextArea"] textarea {
-            background: #111317;
-            border: 1px solid #292c32;
-            border-radius: 8px;
-            color: #e7e7e9;
-            font-size: 0.92rem;
-            line-height: 1.5;
-        }
+.footer {
+    color: #565a62;
+    font-size: 0.7rem;
+    font-family: "IBM Plex Mono", monospace;
+    margin-top: 3rem;
+    text-align: center;
+}
 
-        div[data-testid="stTextArea"] textarea:focus {
-            border-color: #555961;
-            box-shadow: none;
-        }
-
-        div.stButton > button {
-            background: #e8e8e8;
-            color: #111214;
-            border: none;
-            border-radius: 7px;
-            height: 2.7rem;
-            font-weight: 600;
-            font-size: 0.84rem;
-        }
-
-        div.stButton > button:hover {
-            background: #ffffff;
-            color: #111214;
-        }
-
-        button[data-baseweb="tab"] {
-            font-size: 0.8rem;
-        }
-
-        [data-testid="stMetric"] {
-            background: #111317;
-            border: 1px solid #282b31;
-            border-radius: 8px;
-            padding: 14px;
-        }
-
-        .footer {
-            color: #565a62;
-            font-size: 0.7rem;
-            font-family: "IBM Plex Mono", monospace;
-            margin-top: 3rem;
-            text-align: center;
-        }
-    </style>
-    """,
+</style>
+""",
     unsafe_allow_html=True,
 )
 
 
+# ============================================================
+# SIDEBAR
+# ============================================================
+
 with st.sidebar:
+
     st.markdown(
         """
         <div class="brand">Research Workspace</div>
@@ -298,6 +228,7 @@ with st.sidebar:
     ]
 
     for number, label in steps:
+
         st.markdown(
             f"""
             <div class="pipeline-step">
@@ -330,6 +261,10 @@ with st.sidebar:
     )
 
 
+# ============================================================
+# HEADER
+# ============================================================
+
 st.markdown(
     '<div class="page-label">Research</div>',
     unsafe_allow_html=True,
@@ -352,13 +287,17 @@ st.markdown(
 )
 
 
+# ============================================================
+# INPUT
+# ============================================================
+
 st.markdown(
     '<div class="section-title">Research question</div>',
     unsafe_allow_html=True,
 )
 
 topic = st.text_area(
-    "",
+    "Research question",
     placeholder=(
         "e.g. What are the major technical challenges "
         "of deploying autonomous AI agents in production?"
@@ -371,13 +310,14 @@ topic = st.text_area(
 run_col, info_col = st.columns([1, 3])
 
 with run_col:
+
     run_research = st.button(
         "Run research",
-        type="primary",
         use_container_width=True,
     )
 
 with info_col:
+
     st.markdown(
         """
         <div class="status-box">
@@ -387,6 +327,10 @@ with info_col:
         unsafe_allow_html=True,
     )
 
+
+# ============================================================
+# RESEARCH
+# ============================================================
 
 if run_research:
 
@@ -417,65 +361,164 @@ if run_research:
 
     activity = st.empty()
 
+
+    # ========================================================
+    # AGENT UI
+    # ========================================================
+
     def render_agents():
-        rows = []
 
-        for agent, current_status in agent_status.items():
+        html = """
+        <style>
 
-            if current_status == "working":
+        .agent-panel {
+            background: #111317;
+            border: 1px solid #282b31;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .agent-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px;
+            border-bottom: 1px solid #202228;
+        }
+
+        .agent-row:last-child {
+            border-bottom: none;
+        }
+
+        .agent-number {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #30333a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #777b84;
+            font-family: monospace;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .agent-info {
+            flex: 1;
+        }
+
+        .agent-name {
+            color: #d7d9dd;
+            font-family: sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .agent-state {
+            margin-top: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .working {
+            color: #d6d8dc;
+        }
+
+        .completed {
+            color: #8fc99b;
+        }
+
+        .failed {
+            color: #d47c7c;
+        }
+
+        .waiting {
+            color: #666a73;
+        }
+
+        </style>
+
+        <div class="agent-panel">
+        """
+
+        for agent, status in agent_status.items():
+
+            if status == "working":
+
                 icon = "●"
                 label = "Working"
                 css_class = "working"
 
-            elif current_status == "completed":
+            elif status == "completed":
+
                 icon = "✓"
                 label = "Completed"
                 css_class = "completed"
 
-            elif current_status == "failed":
+            elif status == "failed":
+
                 icon = "×"
                 label = "Failed"
                 css_class = "failed"
 
             else:
+
                 icon = "○"
                 label = "Waiting"
                 css_class = "waiting"
 
-            rows.append(
-                f"""
-                <div class="agent-row">
-                    <div class="agent-number">
-                        {agent_number[agent]}
-                    </div>
+            html += f"""
+            <div class="agent-row">
 
-                    <div class="agent-info">
-                        <div class="agent-name">
-                            {agent}
-                        </div>
-
-                        <div class="agent-state {css_class}">
-                            {icon} {label}
-                        </div>
-                    </div>
+                <div class="agent-number">
+                    {agent_number[agent]}
                 </div>
-                """
-            )
 
-        activity.markdown(
-            f"""
-            <div class="agent-panel">
-                {"".join(rows)}
+                <div class="agent-info">
+
+                    <div class="agent-name">
+                        {agent}
+                    </div>
+
+                    <div class="agent-state {css_class}">
+                        {icon} {label}
+                    </div>
+
+                </div>
+
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            """
+
+        html += """
+        </div>
+        """
+
+        with activity:
+
+            st.html(html)
+
+
+    # ========================================================
+    # CALLBACK
+    # ========================================================
 
     def on_agent_step(agent: str, status: str):
-        agent_status[agent] = status
+
+        if agent in agent_status:
+
+            agent_status[agent] = status
+
         render_agents()
 
+
     render_agents()
+
+
+    # ========================================================
+    # RUN PIPELINE
+    # ========================================================
 
     try:
 
@@ -488,15 +531,21 @@ if run_research:
 
     except Exception as exc:
 
-        for agent, current_status in agent_status.items():
-            if current_status == "working":
+        for agent in agent_status:
+
+            if agent_status[agent] == "working":
                 agent_status[agent] = "failed"
 
         render_agents()
 
         st.error(f"Research failed: {exc}")
+
         st.stop()
 
+
+# ============================================================
+# RESULTS
+# ============================================================
 
 if "research_result" in st.session_state:
 
@@ -530,7 +579,14 @@ if "research_result" in st.session_state:
             unsafe_allow_html=True,
         )
 
-    st.write("")
+    else:
+
+        st.info("No report generated.")
+
+
+    # ========================================================
+    # DETAILS
+    # ========================================================
 
     tabs = st.tabs(
         [
@@ -540,12 +596,8 @@ if "research_result" in st.session_state:
         ]
     )
 
-    with tabs[0]:
 
-        st.markdown(
-            '<div class="source-label">Search output</div>',
-            unsafe_allow_html=True,
-        )
+    with tabs[0]:
 
         search_result = result.get("search_result")
 
@@ -554,12 +606,8 @@ if "research_result" in st.session_state:
         else:
             st.info("No search results available.")
 
-    with tabs[1]:
 
-        st.markdown(
-            '<div class="source-label">Extracted material</div>',
-            unsafe_allow_html=True,
-        )
+    with tabs[1]:
 
         scrape_result = result.get("scrape_result")
 
@@ -568,12 +616,8 @@ if "research_result" in st.session_state:
         else:
             st.info("No extracted evidence available.")
 
-    with tabs[2]:
 
-        st.markdown(
-            '<div class="source-label">Critical assessment</div>',
-            unsafe_allow_html=True,
-        )
+    with tabs[2]:
 
         feedback = result.get("feedback")
 
@@ -582,6 +626,10 @@ if "research_result" in st.session_state:
         else:
             st.info("No review available.")
 
+
+# ============================================================
+# FOOTER
+# ============================================================
 
 st.markdown(
     """
