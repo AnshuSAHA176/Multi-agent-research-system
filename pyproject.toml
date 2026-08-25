@@ -1,0 +1,17 @@
+[project]
+name = "multi-agent-research-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Anshu Saha", email = "anshusahaa62@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+multi-agent-research-system = "multi_agent_research_system:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
