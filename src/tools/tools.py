@@ -25,6 +25,28 @@ def websearch(query:str)->str:
 
 
 
+import re
+
+import requests
+import trafilatura
+
+from bs4 import BeautifulSoup
+from readability import Document
+from langchain_core.tools import tool
+
+
+def clean_html(html: str) -> str:
+    return re.sub(
+        r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]",
+        "",
+        html,
+    )
+
+
+def clean_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
 @tool
 def scrape_url(url: str) -> str:
     """
@@ -43,74 +65,78 @@ def scrape_url(url: str) -> str:
     }
 
     try:
-        # ── Fetch page ─────────────────────────────────────
         response = requests.get(
             url,
             headers=headers,
-            timeout=15
+            timeout=15,
         )
 
         response.raise_for_status()
 
-        html = response.text
+        html = clean_html(response.text)
 
-        # ──────────────────────────────────────────────────
-        # Strategy 1 → trafilatura (BEST for articles/blogs)
-        # ──────────────────────────────────────────────────
         extracted = trafilatura.extract(
             html,
             include_comments=False,
-            include_tables=False
+            include_tables=False,
         )
 
         if extracted and len(extracted.strip()) > 200:
-            cleaned = re.sub(r'\s+', ' ', extracted)
-            return cleaned[:5000]
+            return clean_text(extracted)[:5000]
 
-        # ──────────────────────────────────────────────────
-        # Strategy 2 → readability
-        # ──────────────────────────────────────────────────
         doc = Document(html)
-        clean_html = doc.summary()
+        summary_html = doc.summary()
 
-        soup = BeautifulSoup(clean_html, "html.parser")
+        soup = BeautifulSoup(
+            summary_html,
+            "html.parser",
+        )
 
-        for tag in soup([
-            "script",
-            "style",
-            "nav",
-            "footer",
-            "header",
-            "aside",
-            "form"
-        ]):
+        for tag in soup(
+            [
+                "script",
+                "style",
+                "nav",
+                "footer",
+                "header",
+                "aside",
+                "form",
+            ]
+        ):
             tag.decompose()
 
-        text = soup.get_text(separator=" ", strip=True)
+        text = soup.get_text(
+            separator=" ",
+            strip=True,
+        )
 
         if text and len(text.strip()) > 200:
-            cleaned = re.sub(r'\s+', ' ', text)
-            return cleaned[:5000]
+            return clean_text(text)[:5000]
 
-        # ──────────────────────────────────────────────────
-        # Strategy 3 → fallback full page extraction
-        # ──────────────────────────────────────────────────
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(
+            html,
+            "html.parser",
+        )
 
-        for tag in soup([
-            "script",
-            "style",
-            "nav",
-            "footer",
-            "header",
-            "aside",
-            "form"
-        ]):
+        for tag in soup(
+            [
+                "script",
+                "style",
+                "nav",
+                "footer",
+                "header",
+                "aside",
+                "form",
+            ]
+        ):
             tag.decompose()
 
-        text = soup.get_text(separator=" ", strip=True)
+        text = soup.get_text(
+            separator=" ",
+            strip=True,
+        )
 
-        cleaned = re.sub(r'\s+', ' ', text)
+        cleaned = clean_text(text)
 
         if cleaned:
             return cleaned[:5000]
@@ -118,10 +144,13 @@ def scrape_url(url: str) -> str:
         return "Could not extract meaningful content from the page."
 
     except requests.exceptions.Timeout:
-        return "Request timed out while scraping the URL."
+        return f"Request timed out while scraping: {url}"
 
     except requests.exceptions.HTTPError as e:
-        return f"HTTP error occurred: {str(e)}"
+        return f"HTTP error while scraping {url}: {e}"
+
+    except requests.exceptions.RequestException as e:
+        return f"Request failed while scraping {url}: {e}"
 
     except Exception as e:
-        return f"Could not scrape URL: {str(e)}"
+        return f"Could not scrape {url}: {e}"
