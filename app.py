@@ -118,13 +118,6 @@ st.markdown(
             margin-bottom: 0.65rem;
         }
 
-        .research-box {
-            background: #111317;
-            border: 1px solid #282b31;
-            border-radius: 8px;
-            padding: 18px;
-        }
-
         .status-box {
             background: #111317;
             border: 1px solid #282b31;
@@ -133,6 +126,72 @@ st.markdown(
             color: #a4a8b0;
             font-size: 0.82rem;
             font-family: "IBM Plex Mono", monospace;
+        }
+
+        .agent-panel {
+            background: #111317;
+            border: 1px solid #282b31;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .agent-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border-bottom: 1px solid #202228;
+        }
+
+        .agent-row:last-child {
+            border-bottom: none;
+        }
+
+        .agent-number {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #30333a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #777b84;
+            font-family: "IBM Plex Mono", monospace;
+            font-size: 0.68rem;
+            flex-shrink: 0;
+        }
+
+        .agent-info {
+            flex: 1;
+        }
+
+        .agent-name {
+            color: #d7d9dd;
+            font-size: 0.84rem;
+            font-weight: 500;
+        }
+
+        .agent-state {
+            margin-top: 3px;
+            font-family: "IBM Plex Mono", monospace;
+            font-size: 0.68rem;
+        }
+
+        .agent-state.waiting {
+            color: #666a73;
+        }
+
+        .agent-state.working {
+            color: #d6d8dc;
+        }
+
+        .agent-state.completed {
+            color: #9da2aa;
+        }
+
+        .agent-state.failed {
+            color: #c8cbd1;
         }
 
         .report-container {
@@ -193,10 +252,6 @@ st.markdown(
 
         button[data-baseweb="tab"] {
             font-size: 0.8rem;
-        }
-
-        hr {
-            border-color: #25272c;
         }
 
         [data-testid="stMetric"] {
@@ -334,44 +389,117 @@ with info_col:
 
 
 if run_research:
+
     if not topic.strip():
         st.warning("Enter a research question.")
         st.stop()
 
     st.divider()
 
-    status = st.empty()
-
-    status.markdown(
-        """
-        <div class="status-box">
-            Running source discovery...
-        </div>
-        """,
+    st.markdown(
+        '<div class="section-title">Agent activity</div>',
         unsafe_allow_html=True,
     )
 
-    try:
-        result = research_pipeline(topic)
+    agent_status = {
+        "Search Agent": "waiting",
+        "Scrape Agent": "waiting",
+        "Writer Agent": "waiting",
+        "Critic Agent": "waiting",
+    }
 
-        status.markdown(
-            """
-            <div class="status-box">
-                Research completed successfully.
+    agent_number = {
+        "Search Agent": "01",
+        "Scrape Agent": "02",
+        "Writer Agent": "03",
+        "Critic Agent": "04",
+    }
+
+    activity = st.empty()
+
+    def render_agents():
+        rows = []
+
+        for agent, current_status in agent_status.items():
+
+            if current_status == "working":
+                icon = "●"
+                label = "Working"
+                css_class = "working"
+
+            elif current_status == "completed":
+                icon = "✓"
+                label = "Completed"
+                css_class = "completed"
+
+            elif current_status == "failed":
+                icon = "×"
+                label = "Failed"
+                css_class = "failed"
+
+            else:
+                icon = "○"
+                label = "Waiting"
+                css_class = "waiting"
+
+            rows.append(
+                f"""
+                <div class="agent-row">
+                    <div class="agent-number">
+                        {agent_number[agent]}
+                    </div>
+
+                    <div class="agent-info">
+                        <div class="agent-name">
+                            {agent}
+                        </div>
+
+                        <div class="agent-state {css_class}">
+                            {icon} {label}
+                        </div>
+                    </div>
+                </div>
+                """
+            )
+
+        activity.markdown(
+            f"""
+            <div class="agent-panel">
+                {"".join(rows)}
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    def on_agent_step(agent: str, status: str):
+        agent_status[agent] = status
+        render_agents()
+
+    render_agents()
+
+    try:
+
+        result = research_pipeline(
+            topic,
+            on_step=on_agent_step,
+        )
+
         st.session_state["research_result"] = result
 
     except Exception as exc:
-        status.empty()
+
+        for agent, current_status in agent_status.items():
+            if current_status == "working":
+                agent_status[agent] = "failed"
+
+        render_agents()
+
         st.error(f"Research failed: {exc}")
         st.stop()
 
 
 if "research_result" in st.session_state:
+
     result = st.session_state["research_result"]
 
     st.divider()
@@ -389,6 +517,7 @@ if "research_result" in st.session_state:
     report = result.get("report")
 
     if report:
+
         st.markdown(
             '<div class="report-container">',
             unsafe_allow_html=True,
@@ -412,6 +541,7 @@ if "research_result" in st.session_state:
     )
 
     with tabs[0]:
+
         st.markdown(
             '<div class="source-label">Search output</div>',
             unsafe_allow_html=True,
@@ -425,6 +555,7 @@ if "research_result" in st.session_state:
             st.info("No search results available.")
 
     with tabs[1]:
+
         st.markdown(
             '<div class="source-label">Extracted material</div>',
             unsafe_allow_html=True,
@@ -438,6 +569,7 @@ if "research_result" in st.session_state:
             st.info("No extracted evidence available.")
 
     with tabs[2]:
+
         st.markdown(
             '<div class="source-label">Critical assessment</div>',
             unsafe_allow_html=True,

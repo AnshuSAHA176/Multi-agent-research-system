@@ -12,30 +12,36 @@ from src.tools.tools import scrape_url, websearch
 load_dotenv()
 
 
+API_KEY = os.environ["GROQ_API_KEY"]
+
+
 search_llm = ChatGroq(
-    api_key=os.environ["GROQ_API_KEY"],
-    model="openai/gpt-oss-120b",
+    api_key=API_KEY,
+    model="openai/gpt-oss-20b",
     temperature=0,
     max_tokens=700,
 )
 
+
 research_llm = ChatGroq(
-    api_key=os.environ["GROQ_API_KEY"],
-    model="openai/gpt-oss-120b",
+    api_key=API_KEY,
+    model="openai/gpt-oss-20b",
     temperature=0,
     max_tokens=900,
 )
 
+
 writer_llm = ChatGroq(
-    api_key=os.environ["GROQ_API_KEY"],
-    model="openai/gpt-oss-120b",
+    api_key=API_KEY,
+    model="openai/gpt-oss-20b",
     temperature=0,
-    max_tokens=1200,
+    max_tokens=1400,
 )
 
+
 critic_llm = ChatGroq(
-    api_key=os.environ["GROQ_API_KEY"],
-    model="openai/gpt-oss-120b",
+    api_key=API_KEY,
+    model="openai/gpt-oss-20b",
     temperature=0,
     max_tokens=600,
 )
@@ -60,34 +66,42 @@ writer_prompt = ChatPromptTemplate.from_messages(
             """
 You are an expert research writer.
 
-Transform the supplied evidence into a concise,
-accurate, well-structured research report.
+Transform the supplied evidence into a
+clear, accurate research report.
 
 Rules:
-- Use only the supplied evidence.
+
+- Use only supplied evidence.
 - Never invent facts.
-- Clearly distinguish evidence from conclusions.
 - Preserve important source URLs.
-- Prioritize accuracy over verbosity.
-- Use useful headings.
+- Distinguish evidence from conclusions.
+- Prefer accuracy over verbosity.
+- Organize the report with useful headings.
 """,
         ),
         (
             "human",
             """
 Research question:
+
 {question}
 
 Evidence:
+
 {research}
 
-Write the research report.
+Write the final research report.
 """,
         ),
     ]
 )
 
-writer_chain = writer_prompt | writer_llm | StrOutputParser()
+
+writer_chain = (
+    writer_prompt
+    | writer_llm
+    | StrOutputParser()
+)
 
 
 critic_prompt = ChatPromptTemplate.from_messages(
@@ -98,17 +112,19 @@ critic_prompt = ChatPromptTemplate.from_messages(
 You are a rigorous research critic.
 
 Evaluate the report for:
-- Factual accuracy
-- Unsupported claims
-- Missing evidence
-- Logical inconsistencies
-- Weak reasoning
-- Source quality
-- Unanswered parts of the question
+
+- factual accuracy
+- unsupported claims
+- missing evidence
+- logical inconsistencies
+- weak reasoning
+- source quality
+- unanswered parts of the question
 
 Do not rewrite the report.
 
 Return:
+
 Overall assessment
 Problems found
 Missing information
@@ -120,13 +136,20 @@ Final verdict: PASS or REVISE
             "human",
             """
 Research question:
+
 {question}
 
 Research report:
+
 {report}
 """,
         ),
     ]
 )
 
-critic_chain = critic_prompt | critic_llm | StrOutputParser()
+
+critic_chain = (
+    critic_prompt
+    | critic_llm
+    | StrOutputParser()
+)
